@@ -1,0 +1,53 @@
+name: Auto Update Profile Dynamic Age
+
+on:
+  schedule:
+    # Runs daily at midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows manual trigger anytime from GitHub UI
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Calculate and Update Dynamic Age
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Birthdate: Set to 2003-05-15 (15 May 2003)
+            const birthDateStr = '2003-05-15';
+            
+            const birthDate = new Date(birthDateStr);
+            const today = new Date();
+
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+              age--;
+            }
+
+            const readmePath = 'README.md';
+            let content = fs.readFileSync(readmePath, 'utf8');
+
+            const ageRegex = /<!-- AGE_START -->[\s\S]*?<!-- AGE_END -->/g;
+            const updatedContent = content.replace(ageRegex, `<!-- AGE_START -->${age} Years Old<!-- AGE_END -->`);
+
+            if (content !== updatedContent) {
+              fs.writeFileSync(readmePath, updatedContent, 'utf8');
+              console.log(`Updated README age to: ${age} Years Old`);
+            } else {
+              console.log('Age is already up to date.');
+            }
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git diff --staged --quiet || git commit -m "chore(profile): dynamically update age [skip ci]"
+          git push
